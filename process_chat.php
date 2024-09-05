@@ -1,8 +1,6 @@
 <?php
 // process_chat.php
-
 header('Content-Type: application/json');
-
 // Leer la solicitud JSON desde el cuerpo de la solicitud
 $request = json_decode(file_get_contents('php://input'), true);
 //echo "ok";
