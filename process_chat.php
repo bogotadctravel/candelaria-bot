@@ -1,16 +1,15 @@
 <?php
+include "api_keys.php";
 // process_chat.php
 header('Content-Type: application/json');
 // Leer la solicitud JSON desde el cuerpo de la solicitud
 $request = json_decode(file_get_contents('php://input'), true);
 //echo "ok";
 //print_r($request);
-
 //exit;
-
 if (isset($request['message'])) {
     //echo $request['threadId'];
-    $userMessage = $request['message'];
+    $userMessage = "La fecha actual es: ".date("Y-m-d").". ".$request['message'];
     
     // Crear un nuevo thread
     if($request['threadId']=="")
@@ -41,6 +40,8 @@ if (isset($request['message'])) {
          $responsemessage=$run[1];
         $runId = $run[0]->id;
         $runStatus = $run[0]->status;
+        $resource = $run[2];
+        $function = $run[3];
   // echo $run;
 
     // Obtener la respuesta del asistente
@@ -50,9 +51,8 @@ if (isset($request['message'])) {
    // $responseMessage = $assistantMessages->data[0]->content[0]->text->value;
 
     // Devolver la respuesta en formato JSON
-    echo json_encode(['response' => $responsemessage,"threadId" => $threadID,"runID"=>$runId,"runStatus"=>$runStatus]);exit;
+    echo json_encode(['response' => $responsemessage,"threadId" => $threadID,"runID"=>$runId,"runStatus"=>$runStatus, "resource"=> $resource,"function"=> $function]);exit;
 }
-
 function createThread() {
     global $apiKey;
 
@@ -72,7 +72,6 @@ function createThread() {
 
     return json_decode($response);
 }
-
 function addMessageToThread($threadId, $content) {
     global $apiKey;
 
@@ -95,7 +94,6 @@ function addMessageToThread($threadId, $content) {
 
     return json_decode($response);
 }
-
 function runAssistant($threadId,$runId="") {
     global $assistantId, $apiKey;
 
@@ -118,9 +116,9 @@ function runAssistant($threadId,$runId="") {
 
     $run = json_decode($response);
     $runId = $run->id;
-}else{
-    $run = "";
-}
+    }else{
+        $run = "";
+    }
     // Esperar hasta que el run esté completo o requiera acción
     $maxAttempts = 30;
     $waitTime = 1;
@@ -140,24 +138,24 @@ function runAssistant($threadId,$runId="") {
         //echo $runStatus->status." / ";
         if ($runStatus->status === 'requires_action') {
             foreach ($runStatus->required_action->submit_tool_outputs->tool_calls as $toolCall) {
-                if ($toolCall->type === 'function' && $toolCall->function->name === 'search_in_visitbogota') {
+                if (($toolCall->type === 'function' && $toolCall->function->name === 'search_in_visitbogota') || ($toolCall->type === 'function' && $toolCall->function->name === 'search_in_events')) {
                     $toolCallId = $toolCall->id;
                     $functionArguments = json_decode($toolCall->function->arguments, true);
 
                     // Ejecuta la función y obtén el resultado
-                    $result = searchInBogota($functionArguments);
+                    $result = searchInBogota($functionArguments,$toolCall->function->name);
                    // echo json_encode($result);
                     // Envía la respuesta de la función de vuelta al `run`
                     //print_r($result); exit;
                     $thesubmit = submitFunctionOutput($threadId, $run->id, $toolCallId, $result);
-                    return array($runStatus,0);
+                    return array($runStatus,0, $functionArguments['resource'],$toolCall->function->name);
                 }
             }
         }
 
         if ($runStatus->status === 'completed') {
             $assistantMessages = getAssistantMessages($threadId);
-            return array($runStatus,$assistantMessages->data[0]->content[0]->text->value);
+            return array($runStatus,$assistantMessages->data[0]->content[0]->text->value,0,0);
             // return $runStatus;
         }
 
@@ -166,7 +164,6 @@ function runAssistant($threadId,$runId="") {
 
    // return $runStatus;
 }
-
 function getAssistantMessages($threadId) {
     global $apiKey;
 
@@ -232,7 +229,7 @@ function submitFunctionOutput($threadId, $runId, $toolCallId, $output) {
     //exit;
     return json_decode($response);
 }
-function searchInBogota($arguments) {
+function searchInBogota($arguments,$functionName) {
     global $apiKey;
 
     // Verifica que el parámetro 'resource' esté presente en los argumentos
@@ -243,8 +240,12 @@ function searchInBogota($arguments) {
     }
 
     $resource = $arguments['resource'];
+    
     $url = "https://bogotadc.travel/drpl/es/api/v2/candelaria_search/{$resource}";
-
+    if($functionName=="search_in_events")
+    {
+        $url = "https://bogotadc.travel/drpl/es/api/v2/candelaria_events/{$resource}";
+    }
     // Inicializar cURL
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
