@@ -17,7 +17,17 @@ window.onload = function () {
     "assistant",
     "¡Hola! Soy Candelaria, la asistente virtual de turismo de Bogotá. ¿En qué puedo ayudarte hoy?"
   );
+
+  $('#themsg').keypress(function (e) {
+    var key = e.which;
+    if(key == 13)  // the enter key code
+     {
+       $('#send-btn').click();
+       return false;  
+     }
+   });  
 };
+
 document.getElementById("send-btn").addEventListener("click", async () => {
   const userInput = document.getElementById("themsg").value;
 
@@ -41,17 +51,20 @@ function addMessageToChat(role, message, temp = false) {
   const messagesDiv = document.getElementById("history");
   const messageDiv = document.createElement("li");
 
-  messageDiv.classList.add('message-data', role);
-  messageDiv.classList.add('message', role);
-  if(temp && role == "assistant"){ messageDiv.classList.add('temporal'); }
-  if(role=="assistant" && !temp){
-      document.querySelector('.temporal').remove(); 
+  messageDiv.classList.add("message-data", role);
+  messageDiv.classList.add("message", role);
+  if (temp && role == "assistant") {
+    messageDiv.classList.add("temporal");
+  }
+  if (role == "assistant" && !temp) {
+    document.querySelector(".temporal").remove();
   }
 
   messageDiv.innerHTML = parseMarkdown(message);
 
   messagesDiv.appendChild(messageDiv);
-  document.getElementById('chat-history').scrollTop = document.getElementById('chat-history').scrollHeight;  // Desplazar hacia abajo
+  document.getElementById("chat-history").scrollTop =
+    document.getElementById("chat-history").scrollHeight; // Desplazar hacia abajo
 }
 
 async function sendMessageToServer(message) {
@@ -85,6 +98,11 @@ async function sendMessageToServer(message) {
   }
 }
 function parseMarkdown(text) {
+  // Verificar si el input no es texto o está vacío
+  if (typeof text !== "string" || text.trim() === "") {
+    return "";
+  }
+
   // Reemplazar encabezados (## Header)
   text = text.replace(/## (.+)/g, "<h2>$1</h2>"); // Encabezado de nivel 2
   text = text.replace(/# (.+)/g, "<h1>$1</h1>"); // Encabezado de nivel 1
@@ -106,6 +124,7 @@ function parseMarkdown(text) {
 
   return text;
 }
+
 function encender() {
   var botonRebeca = document.getElementById("btn-rebeca");
 

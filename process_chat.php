@@ -1,12 +1,15 @@
 <?php
-include "api_keys.php";
 // process_chat.php
 header('Content-Type: application/json');
+include "api_keys.php";
+include "mysql.php";
 // Leer la solicitud JSON desde el cuerpo de la solicitud
 $request = json_decode(file_get_contents('php://input'), true);
 //echo "ok";
 //print_r($request);
+
 //exit;
+
 if (isset($request['message'])) {
     //echo $request['threadId'];
     $userMessage = "La fecha actual es: ".date("Y-m-d").". ".$request['message'];
@@ -51,8 +54,16 @@ if (isset($request['message'])) {
    // $responseMessage = $assistantMessages->data[0]->content[0]->text->value;
 
     // Devolver la respuesta en formato JSON
-    echo json_encode(['response' => $responsemessage,"threadId" => $threadID,"runID"=>$runId,"runStatus"=>$runStatus, "resource"=> $resource,"function"=> $function]);exit;
+    echo json_encode(['response' => $responsemessage,"threadId" => $threadID,"runID"=>$runId,"runStatus"=>$runStatus, "resource"=> $resource,"function"=> $function]);
+    
+    if($runStatus == "completed")
+    {
+        $db = new dbase();
+        $db->insert("chats",array("msg_cha","res_cha","thr_cha","ip_cha","rsr_cha"),array($request['message'],$responsemessage,$threadID,$_SERVER['REMOTE_ADDR']));
+    }exit;
+    
 }
+
 function createThread() {
     global $apiKey;
 
@@ -72,6 +83,7 @@ function createThread() {
 
     return json_decode($response);
 }
+
 function addMessageToThread($threadId, $content) {
     global $apiKey;
 
@@ -94,6 +106,7 @@ function addMessageToThread($threadId, $content) {
 
     return json_decode($response);
 }
+
 function runAssistant($threadId,$runId="") {
     global $assistantId, $apiKey;
 
@@ -116,9 +129,9 @@ function runAssistant($threadId,$runId="") {
 
     $run = json_decode($response);
     $runId = $run->id;
-    }else{
-        $run = "";
-    }
+}else{
+    $run = "";
+}
     // Esperar hasta que el run esté completo o requiera acción
     $maxAttempts = 30;
     $waitTime = 1;
@@ -143,12 +156,26 @@ function runAssistant($threadId,$runId="") {
                     $functionArguments = json_decode($toolCall->function->arguments, true);
 
                     // Ejecuta la función y obtén el resultado
-                    $result = searchInBogota($functionArguments,$toolCall->function->name);
+                        $result = searchInBogota($functionArguments,$toolCall->function->name);
+
+                   
                    // echo json_encode($result);
                     // Envía la respuesta de la función de vuelta al `run`
                     //print_r($result); exit;
+                    $rs = str_replace(" ","+",strtolower($functionArguments['resource']));
+                    $rs = str_replace("turisticos","",$rs);
+                    $rs = str_replace("turísticos","",$rs);
+                    $rs = str_replace("turísticas","",$rs);
+                    $rs = str_replace("turística","",$rs);
+                    $rs = str_replace("bogota","",$rs);
+                    $rs = str_replace("bogotá","",$rs);
+                    for($i=1;$i<20;$i++)
+                    {
+                        $rs = str_replace("'".$i."'","",$rs);
+                    }
+
                     $thesubmit = submitFunctionOutput($threadId, $run->id, $toolCallId, $result);
-                    return array($runStatus,0, $functionArguments['resource'],$toolCall->function->name);
+                    return array($runStatus,0, $rs,$toolCall->function->name);
                 }
             }
         }
@@ -164,6 +191,7 @@ function runAssistant($threadId,$runId="") {
 
    // return $runStatus;
 }
+
 function getAssistantMessages($threadId) {
     global $apiKey;
 
@@ -239,8 +267,18 @@ function searchInBogota($arguments,$functionName) {
         ];
     }
 
-    $resource = $arguments['resource'];
-    
+    $resource = str_replace(" ","+",strtolower($arguments['resource']));
+    $resource = str_replace("turisticos","",$resource);
+    $resource = str_replace("turísticos","",$resource);
+    $resource = str_replace("turísticas","",$resource);
+    $resource = str_replace("turística","",$resource);
+    $resource = str_replace("bogota","",$resource);
+    $resource = str_replace("bogotá","",$resource);
+    for($i=1;$i<20;$i++)
+    {
+        $rs = str_replace("'".$i."'","",$resource);
+    }
+
     $url = "https://bogotadc.travel/drpl/es/api/v2/candelaria_search/{$resource}";
     if($functionName=="search_in_events")
     {

@@ -3,7 +3,14 @@
     padding: 0;
     box-sizing: border-box;
 }
-
+a.thelink
+{
+    display:none;
+}
+a.thelink.whatsapp
+{
+    display:inline-block;
+}
 #btn-chat{
     display: none;
 }
